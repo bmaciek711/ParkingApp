@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BlazorApp1\ParkingApp.Web.csproj" />
+    <ProjectReference Include="..\ParkingApp.Core\ParkingApp.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="PatternsSingleton\" />
+    <Folder Include="PatternsMediator\" />
+    <Folder Include="PatternsInterpreter\" />
+    <Folder Include="PatternsFactories\" />
+  </ItemGroup>
+
+</Project>
