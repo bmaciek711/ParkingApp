@@ -1,10 +1,23 @@
-using BlazorApp1.Components;
+using Microsoft.EntityFrameworkCore;
+using ParkingApp.Core.Entities;
+using ParkingApp.Core.Interfaces;
+using ParkingApp.Infrastructure.Data;
+using ParkingApp.Infrastructure.Repositories;
+using ParkingApp.Web;
+using ParkingApp.Web.Components;
+
+
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddDbContext<ParkingDbContext>(opt =>
+    opt.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 
 var app = builder.Build();
 
@@ -23,5 +36,40 @@ app.UseAntiforgery();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
+
+    if (!db.ParkingSpots.Any())
+    {
+        db.ParkingSpots.AddRange(
+            new ParkingSpot { Number = 1, IsVipOnly = false, IsUnderMaintenance = false },
+            new ParkingSpot { Number = 2, IsVipOnly = true, IsUnderMaintenance = false },
+            new ParkingSpot { Number = 3, IsVipOnly = false, IsUnderMaintenance = true }
+        );
+
+        db.SaveChanges();
+    }
+}
+
+// przyk³adowa baza (chcêzobaczyæ efekt)
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
+
+    if (!db.ParkingSpots.Any())
+    {
+        db.ParkingSpots.AddRange(
+            new ParkingSpot { Number = 1, IsVipOnly = false, IsUnderMaintenance = false },
+            new ParkingSpot { Number = 2, IsVipOnly = true, IsUnderMaintenance = false },
+            new ParkingSpot { Number = 3, IsVipOnly = false, IsUnderMaintenance = true }
+        );
+
+        db.SaveChanges();
+    }
+}
+
 
 app.Run();

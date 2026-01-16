@@ -1,0 +1,44 @@
+﻿@page "/spots"
+@using Microsoft.EntityFrameworkCore
+@using ParkingApp.Core.Entities
+@inject ParkingApp.Infrastructure.Data.ParkingDbContext Db
+
+<h3>Miejsca parkingowe</h3>
+
+@if (_spots is null)
+{
+    <p>Ładowanie...</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Nr</th>
+                <th>VIP</th>
+                <th>Serwis</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var s in _spots)
+            {
+                <tr>
+                    <td>@s.Number</td>
+                    <td>@(s.IsVipOnly ? "Tak" : "Nie")</td>
+                    <td>@(s.IsUnderMaintenance ? "Tak" : "Nie")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<ParkingSpot>? _spots;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _spots = await Db.ParkingSpots.AsNoTracking()
+            .OrderBy(x => x.Number)
+            .ToListAsync();
+    }
+}
