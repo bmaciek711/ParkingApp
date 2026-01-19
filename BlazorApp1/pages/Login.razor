@@ -1,0 +1,61 @@
+﻿@page "/login"
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
+@inject SignInManager<IdentityUser> SignInManager
+@inject NavigationManager NavManager
+
+<div class="container mt-5">
+    <div class="card shadow p-4" style="max-width: 400px; margin: auto;">
+        <h3 class="text-center">Logowanie</h3>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <EditForm Model="@loginModel" OnValidSubmit="HandleLogin" FormName="LoginForm">
+            <div class="mb-3">
+                <label class="form-label">Email</label>
+                <InputText @bind-Value="loginModel.Email" class="form-control" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Hasło</label>
+                <InputText @bind-Value="loginModel.Password" type="password" class="form-control" />
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">Zaloguj się</button>
+        </EditForm>
+    </div>
+</div>
+
+ @code {
+    [SupplyParameterFromForm]
+    public LoginModel loginModel { get; set; } = new();
+    private string? errorMessage;
+
+    private async Task HandleLogin()
+    {
+        var result = await SignInManager.PasswordSignInAsync(loginModel.Email, loginModel.Password, false, false);
+
+        if (result.Succeeded)
+        {
+            NavManager.NavigateTo("/");
+        }
+        else
+        {
+            errorMessage = "Błędny email lub hasło.";
+        }
+    }
+
+    public class LoginModel
+    {
+        [Required(ErrorMessage = "Email jest wymagany")]
+        [EmailAddress]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Hasło jest wymagane")]
+        public string Password { get; set; } = "";
+    }
+}

@@ -1,10 +1,11 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using ParkingApp.Core.Entities;
-
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 
 namespace ParkingApp.Infrastructure.Data;
 
-public sealed class ParkingDbContext : DbContext
+public sealed class ParkingDbContext : IdentityDbContext<IdentityUser>
 {
     public ParkingDbContext(DbContextOptions<ParkingDbContext> options) : base(options) { }
 
@@ -19,6 +20,7 @@ public sealed class ParkingDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
         // Dziedziczenie Vehicle -> TPH (jedna tabela z "VehicleType")
         modelBuilder.Entity<Vehicle>()
             .HasDiscriminator<string>("VehicleType")

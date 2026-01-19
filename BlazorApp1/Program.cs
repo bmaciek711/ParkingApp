@@ -5,10 +5,29 @@ using ParkingApp.Infrastructure.Data;
 using ParkingApp.Infrastructure.Repositories;
 using ParkingApp.Web;
 using ParkingApp.Web.Components;
-
+using ParkingApp.Application.PatternsSingleton;
+using Microsoft.AspNetCore.Identity;
 
 
 var builder = WebApplication.CreateBuilder(args);
+
+// dodanie identity
+builder.Services.AddIdentity<IdentityUser, IdentityRole>(options => {
+    options.Password.RequireDigit = false;
+    options.Password.RequiredLength = 6;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequireUppercase = false;
+    options.Password.RequireLowercase = false;
+})
+.AddEntityFrameworkStores<ParkingDbContext>()
+.AddDefaultTokenProviders();
+
+// 2. Dodaj autoryzacjê i uwierzytelnianie
+builder.Services.AddAuthentication();
+builder.Services.AddAuthorization();
+
+// dodanie singletona
+builder.Services.AddSingleton<SystemConfiguration>();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()

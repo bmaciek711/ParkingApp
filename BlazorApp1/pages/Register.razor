@@ -1,0 +1,64 @@
+﻿@page "/register"
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
+@inject UserManager<IdentityUser> UserManager
+@inject NavigationManager NavManager
+
+<div class="container mt-5">
+    <div class="card shadow p-4" style="max-width: 400px; margin: auto;">
+        <h3 class="text-center">Rejestracja</h3>
+        
+        <EditForm Model="@regModel" OnValidSubmit="HandleRegistration" FormName="RegistrationForm">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" />
+
+            <div class="mb-3">
+                <label class="form-label">Adres Email</label>
+                <InputText @bind-Value="regModel.Email" class="form-control" placeholder="user@example.com" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Hasło</label>
+                <InputText @bind-Value="regModel.Password" type="password" class="form-control" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Potwierdź Hasło</label>
+                <InputText @bind-Value="regModel.ConfirmPassword" type="password" class="form-control" />
+            </div>
+
+            <button type="submit" class="btn btn-success w-100">Zarejestruj się</button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    public RegisterModel regModel { get; set; } = new();
+
+    private async Task HandleRegistration()
+    {
+        var user = new IdentityUser { UserName = regModel.Email, Email = regModel.Email };
+        var result = await UserManager.CreateAsync(user, regModel.Password);
+
+        if (result.Succeeded)
+        {
+            NavManager.NavigateTo("/login");
+        }
+    }
+
+    public class RegisterModel
+    {
+        [Required(ErrorMessage = "Email jest wymagany")]
+        [EmailAddress(ErrorMessage = "Niepoprawny format email")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Hasło jest wymagane")]
+        [MinLength(6, ErrorMessage = "Hasło musi mieć min. 6 znaków")]
+        public string Password { get; set; } = "";
+
+        [Compare("Password", ErrorMessage = "Hasła nie są identyczne")]
+        public string ConfirmPassword { get; set; } = "";
+    }
+}
