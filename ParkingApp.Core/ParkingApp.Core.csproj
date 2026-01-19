@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="C:\Users\bmaci\Desktop\Parkingapp.cs" Link="Parkingapp.cs" />
+    <Compile Remove="Parkingapp.cs" />
   </ItemGroup>
 
   <ItemGroup>
