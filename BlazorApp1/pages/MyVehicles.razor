@@ -1,0 +1,90 @@
+﻿@page "/my-vehicles"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@using Microsoft.EntityFrameworkCore
+@using ParkingApp.Core.Entities
+@using ParkingApp.Infrastructure.Data
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Web
+@attribute [Authorize]
+@inject ParkingDbContext DbContext
+@inject UserManager<IdentityUser> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavManager
+
+
+<div class="container mt-4">
+    <h3>Twoje Pojazdy</h3>
+
+    @if (vehicles == null)
+    {
+        <p><em>Ładowanie...</em></p>
+    }
+    else if (!vehicles.Any())
+    {
+        <div class="alert alert-info">Nie masz jeszcze żadnych pojazdów. <a href="add-vehicle">Dodaj pierwszy!</a></div>
+    }
+    else
+    {
+        <table class="table table-hover shadow-sm">
+            <thead class="table-dark">
+                <tr>
+                    <th>Typ</th>
+                    <th>Nazwa</th>
+                    <th>Rejestracja</th>
+                    <th>Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var v in vehicles)
+                {
+                    <tr>
+                        <td>@v.GetType().Name</td>
+                        <td>@v.Name</td>
+                        <td>@(v.LicensePlate ?? "Brak")</td>
+                        <td>
+                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteVehicle(v.Id)">Usuń</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<Vehicle>? vehicles;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadVehicles();
+    }
+
+    private async Task LoadVehicles()
+    {
+        // Pobranie ID zalogowanego użytkownika
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = await UserManager.GetUserAsync(authState.User);
+
+        if (user != null)
+        {
+            // Pobieramy tylko pojazdy należące do zalogowanej osoby
+            vehicles = await DbContext.Vehicles
+                .Where(v => v.OwnerId == user.Id)
+                .ToListAsync();
+        }
+    }
+
+    private async Task DeleteVehicle(int id)
+    {
+        var vehicle = await DbContext.Vehicles.FindAsync(id);
+        if (vehicle != null)
+        {
+            DbContext.Vehicles.Remove(vehicle);
+            await DbContext.SaveChangesAsync();
+            await LoadVehicles();
+            StateHasChanged();
+        }
+    }
+}

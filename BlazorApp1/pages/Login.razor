@@ -4,6 +4,9 @@
 @using System.ComponentModel.DataAnnotations
 @inject SignInManager<IdentityUser> SignInManager
 @inject NavigationManager NavManager
+@using Microsoft.AspNetCore.Authorization
+@attribute [AllowAnonymous]
+
 
 <div class="container mt-5">
     <div class="card shadow p-4" style="max-width: 400px; margin: auto;">

@@ -1,0 +1,80 @@
+﻿@page "/add-vehicle"
+@using Microsoft.AspNetCore.Components.Authorization
+@using ParkingApp.Application.PatternsFactories
+@using ParkingApp.Core.Entities
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Forms
+@inject NavigationManager NavManager
+@using ParkingApp.Infrastructure.Data
+@using Microsoft.AspNetCore.Identity
+@inject ParkingDbContext DbContext
+@inject UserManager<IdentityUser> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+<div class="container mt-4">
+    <h3>Dodaj nowy pojazd</h3>
+
+    <EditForm Model="@vehicleModel" OnValidSubmit="HandleCreate" FormName="AddVehicleForm">
+        <DataAnnotationsValidator />
+
+        <div class="mb-3">
+            <label>Typ pojazdu:</label>
+            <InputSelect @bind-Value="vehicleModel.Type" class="form-control">
+                <option value="Car">Samochód</option>
+                <option value="Motorcycle">Motocykl</option>
+                <option value="Bicycle">Rower</option>
+            </InputSelect>
+        </div>
+
+        <div class="mb-3">
+            <label>Nazwa (np. Mój samochód):</label>
+            <InputText @bind-Value="vehicleModel.Name" class="form-control" />
+        </div>
+
+        @if (vehicleModel.Type != "Bicycle")
+        {
+            <div class="mb-3">
+                <label>Numer rejestracyjny:</label>
+                <InputText @bind-Value="vehicleModel.LicensePlate" class="form-control" />
+            </div>
+        }
+
+        <button type="submit" class="btn btn-primary">Stwórz pojazd</button>
+    </EditForm>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    public VehicleFormModel vehicleModel { get; set; } = new();
+
+private async Task HandleCreate()
+{
+    var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+    var user = await UserManager.GetUserAsync(authState.User);
+
+    if (user == null) return;
+
+    var newVehicle = VehicleSimpleFactory.Create(
+        vehicleModel.Type, 
+        vehicleModel.Name, 
+        vehicleModel.LicensePlate
+    );
+
+    newVehicle.OwnerId = user.Id;
+
+    DbContext.Vehicles.Add(newVehicle);
+    await DbContext.SaveChangesAsync();
+
+
+    NavManager.NavigateTo("/");
+}
+
+    public class VehicleFormModel
+    {
+        public string Type { get; set; } = "Car";
+        [Required] public string Name { get; set; } = "";
+        public string LicensePlate { get; set; } = "";
+    }
+}

@@ -13,7 +13,6 @@
   <ItemGroup>
     <Folder Include="PatternsMediator\" />
     <Folder Include="PatternsInterpreter\" />
-    <Folder Include="PatternsFactories\" />
   </ItemGroup>
 
 </Project>
