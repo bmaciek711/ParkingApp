@@ -7,9 +7,11 @@ using ParkingApp.Infrastructure.Data;
 using ParkingApp.Infrastructure.Repositories;
 using ParkingApp.Web;
 using ParkingApp.Web.Components;
+using ParkingApp.Application.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddScoped<IParkingService, ParkingService>();
 
 builder.Services.AddDbContext<ParkingDbContext>(opt =>
     opt.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -84,5 +86,6 @@ using (var scope = app.Services.CreateScope())
         db.SaveChanges();
     }
 }
+
 
 app.Run();

@@ -1,4 +1,5 @@
 ﻿@page "/register"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.AspNetCore.Components.Forms
 @using System.ComponentModel.DataAnnotations
@@ -6,6 +7,7 @@
 @inject NavigationManager NavManager
 @using Microsoft.AspNetCore.Authorization
 @attribute [AllowAnonymous]
+@using Microsoft.AspNetCore.Components.Web
 
 <div class="container mt-5">
     <div class="card shadow p-4" style="max-width: 400px; margin: auto;">

@@ -2,11 +2,12 @@
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.AspNetCore.Components.Forms
 @using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authentication
 @inject SignInManager<IdentityUser> SignInManager
 @inject NavigationManager NavManager
 @using Microsoft.AspNetCore.Authorization
 @attribute [AllowAnonymous]
-
+@using ParkingApp.Web.Components.Pages
 
 <div class="container mt-5">
     <div class="card shadow p-4" style="max-width: 400px; margin: auto;">
@@ -17,7 +18,8 @@
             <div class="alert alert-danger">@errorMessage</div>
         }
 
-        <EditForm Model="@loginModel" OnValidSubmit="HandleLogin" FormName="LoginForm">
+        <EditForm Model="@loginModel" OnValidSubmit="HandleLogin" FormName="LoginForm" method="post">
+            <DataAnnotationsValidator />
             <div class="mb-3">
                 <label class="form-label">Email</label>
                 <InputText @bind-Value="loginModel.Email" class="form-control" />
@@ -33,10 +35,15 @@
     </div>
 </div>
 
- @code {
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
     [SupplyParameterFromForm]
     public LoginModel loginModel { get; set; } = new();
+    
     private string? errorMessage;
+
 
     private async Task HandleLogin()
     {

@@ -1,7 +1,76 @@
 ﻿@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Parking App - System Zarządzania</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="container mt-5">
+    <AuthorizeView>
+        @* --- WIDOK DLA ZALOGOWANYCH --- *@
+        <Authorized>
+            <div class="jumbotron p-5 mb-4 bg-light rounded-3 shadow-sm">
+                <p class="col-md-8 fs-4">Twoje centrum zarządzania pojazdami i parkingiem jest gotowe.</p>
+                <hr class="my-4">
+                
+                <div class="row g-4 mt-2">
+                    <div class="col-md-4">
+                        <div class="card h-100 border-primary">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">Moje Pojazdy</h5>
+                                <p class="card-text">Zarządzaj swoją flotą, edytuj dane lub usuwaj pojazdy.</p>
+                                <a href="my-vehicles" class="btn btn-outline-primary">Przejdź do listy</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card h-100 border-success">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">Dodaj Nowy</h5>
+                                <p class="card-text">Masz nowy pojazd? Zarejestruj go w systemie w kilka sekund.</p>
+                                <a href="add-vehicle" class="btn btn-outline-success">Dodaj pojazd</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card h-100 border-info">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">Rezerwacja</h5>
+                                <p class="card-text">Sprawdź wolne miejsca i zarezerwuj postój.</p>
+                                <button class="btn btn-outline-info" disabled>Wkrótce dostępne</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Authorized>
 
-Welcome to your new app.
+        @* --- WIDOK DLA NIEZALOGOWANYCH --- *@
+        <NotAuthorized>
+            <div class="text-center p-5 bg-dark text-white rounded-3 shadow">
+                <h1 class="display-4 fw-bold">Witaj w ParkingApp</h1>
+                <p class="lead mt-3">Nowoczesny system zarządzania miejscami parkingowymi dla Twojej firmy i domu.</p>
+                <div class="mt-5">
+                    <a href="login" class="btn btn-primary btn-lg px-4 me-sm-3">Zaloguj się</a>
+                    <a href="register" class="btn btn-outline-light btn-lg px-4">Załóż konto</a>
+                </div>
+                <div class="mt-4 text-muted">
+                    <small>Zaloguj się, aby uzyskać dostęp do rezerwacji i zarządzania pojazdami.</small>
+                </div>
+            </div>
+
+            <div class="row mt-5 text-center">
+                <div class="col-md-4">
+                    <h3>Szybkość</h3>
+                    <p>Rezerwacja miejsca w mniej niż 30 sekund.</p>
+                </div>
+                <div class="col-md-4">
+                    <h3>Bezpieczeństwo</h3>
+                    <p>Pełna kontrola nad tym, kto parkuje na Twoim terenie.</p>
+                </div>
+                <div class="col-md-4">
+                    <h3>Raporty</h3>
+                    <p>Śledź historię postojów i wydatki.</p>
+                </div>
+            </div>
+        </NotAuthorized>
+    </AuthorizeView>
+</div>

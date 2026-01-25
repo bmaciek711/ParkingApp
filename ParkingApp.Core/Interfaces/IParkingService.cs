@@ -8,4 +8,6 @@ namespace ParkingApp.Core.Interfaces;
 public interface IParkingService
 {
     Task<IReadOnlyList<ParkingSpot>> GetSpotsAsync(CancellationToken ct = default);
+
+    string IssueTicket(string ticketType);
 }

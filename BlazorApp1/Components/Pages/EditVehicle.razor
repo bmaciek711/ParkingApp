@@ -1,0 +1,93 @@
+﻿@page "/edit-vehicle/{Id:int}"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@using ParkingApp.Core.Entities
+@using ParkingApp.Core.Interfaces
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@inject IRepository<Vehicle> VehicleRepository
+@inject NavigationManager NavManager
+
+<div class="container mt-4">
+    <h3>Edytuj pojazd</h3>
+
+    @if (vehicleModel == null)
+    {
+        <p>Ładowanie danych...</p>
+    }
+    else
+    {
+        <EditForm Model="vehicleModel" OnValidSubmit="HandleUpdate" FormName="EditVehicleForm">
+            <DataAnnotationsValidator />
+
+            <div class="mb-3">
+                <label>Nazwa:</label>
+                <InputText @bind-Value="vehicleModel.Name" class="form-control" />
+                <ValidationMessage For="() => vehicleModel.Name" />
+            </div>
+
+            @* Sprawdzamy typ, aby wiedzieć czy pokazać pole tablicy *@
+            @if (vehicleType != "Bicycle")
+            {
+                <div class="mb-3">
+                    <label>Numer rejestracyjny:</label>
+                    <InputText @bind-Value="vehicleModel.LicensePlate" class="form-control" />
+                </div>
+            }
+
+            <button type="submit" class="btn btn-success">Zapisz zmiany</button>
+            <button type="button" class="btn btn-secondary" @onclick='() => NavManager.NavigateTo("/my-vehicles")'>Anuluj</button>
+        </EditForm>
+    }
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    [SupplyParameterFromForm]
+    public VehicleFormModel vehicleModel { get; set; } = new();
+
+    private string? vehicleType;
+    private Vehicle? originalVehicle;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Pobieramy oryginalny pojazd z bazy
+        originalVehicle = await VehicleRepository.GetByIdAsync(Id);
+        
+        if (originalVehicle != null)
+        {
+            // Mapujemy dane do modelu formularza
+            vehicleModel.Name = originalVehicle.Name;
+            vehicleModel.LicensePlate = originalVehicle.LicensePlate ?? "";
+            vehicleType = originalVehicle.GetType().Name;
+        }
+        else
+        {
+            NavManager.NavigateTo("/my-vehicles");
+        }
+    }
+
+    private async Task HandleUpdate()
+    {
+        if (originalVehicle != null)
+        {
+            // Aktualizujemy dane w oryginalnym obiekcie
+            originalVehicle.Name = vehicleModel.Name;
+            originalVehicle.LicensePlate = vehicleModel.LicensePlate;
+
+            await VehicleRepository.UpdateAsync(originalVehicle);
+            NavManager.NavigateTo("/my-vehicles");
+        }
+    }
+
+    // Klasa pomocnicza (taka sama jak w add-vehicle)
+    public class VehicleFormModel
+    {
+        [Required(ErrorMessage = "Nazwa jest wymagana")]
+        public string Name { get; set; } = "";
+        public string LicensePlate { get; set; } = "";
+    }
+}
