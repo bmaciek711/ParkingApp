@@ -10,4 +10,9 @@ public sealed class Reservation : BaseEntity
 
     public DateTime From { get; set; }
     public DateTime To { get; set; }
+
+    public DateTime StartTime { get; set; }
+    public DateTime EndTime { get; set; }
+    public bool IsActive { get; set; } = true;
+
 }

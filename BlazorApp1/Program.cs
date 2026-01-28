@@ -8,8 +8,18 @@ using ParkingApp.Infrastructure.Repositories;
 using ParkingApp.Web;
 using ParkingApp.Web.Components;
 using ParkingApp.Application.Services;
+using MediatR;
+using ParkingApp.Application.PatternsMediator;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddScoped<IParkingSpotReadRepository, ParkingSpotReadRepository>();
+
+builder.Services.AddMediatR(typeof(GetAvailableSpotsHandler).Assembly);
+
+builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
+
+
 
 builder.Services.AddScoped<IParkingService, ParkingService>();
 

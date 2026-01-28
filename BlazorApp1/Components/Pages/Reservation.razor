@@ -1,0 +1,133 @@
+﻿@page "/reservation"
+@using MediatR
+@using ParkingApp.Application.PatternsMediator
+@inject IMediator Mediator
+
+<h3>Rezerwacja</h3>
+
+<div style="max-width:800px">
+
+    <div style="margin-bottom:10px">
+        <label><b>Od:</b></label><br />
+        <InputDate @bind-Value="_from" />
+    </div>
+
+    <div style="margin-bottom:10px">
+        <label><b>Do:</b></label><br />
+        <InputDate @bind-Value="_to" />
+    </div>
+
+    <div style="margin-bottom:10px">
+        <label><b>Wyszukiwanie (Interpreter):</b></label><br />
+        <input @bind="_searchText" style="width:100%" placeholder="np. vip wolne" />
+        <small>Przykłady: <b>vip</b>, <b>wolne</b>, <b>serwis</b></small>
+    </div>
+
+    <div style="margin-bottom:10px">
+        <label><b>VIP użytkownik?</b></label>
+        <input type="checkbox" @bind="_isVipUser" />
+    </div>
+
+    <button class="btn btn-primary" @onclick="LoadAvailableSpots">
+        Sprawdź wolne miejsca
+    </button>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <div class="alert alert-info mt-3">@_message</div>
+    }
+
+    @if (_availableSpots.Count > 0)
+    {
+        <hr />
+        <h5>Wolne miejsca</h5>
+
+        <div class="mb-2">
+            <label><b>Wybierz miejsce:</b></label><br />
+            <select class="form-select" @bind="_selectedSpotId">
+                @foreach (var s in _availableSpots)
+                {
+                    <option value="@s.Id">#@s.Number @(s.IsVipOnly ? "(VIP)" : "")</option>
+                }
+            </select>
+        </div>
+
+        <div class="mb-2">
+            <label><b>ID pojazdu (na start):</b></label><br />
+            <InputNumber class="form-control" @bind-Value="_vehicleId" />
+            <small>Na razie wpisz ręcznie (np. 1). Później zrobimy listę Twoich pojazdów.</small>
+        </div>
+
+        <button class="btn btn-success" @onclick="CreateReservation">
+            Zarezerwuj postój
+        </button>
+    }
+
+    @if (_ticket is not null && _ticket.Success)
+    {
+        <hr />
+        <h5>Potwierdzenie (Abstract Factory)</h5>
+        <p><b>Kod dostępu:</b> @_ticket.AccessCodeType - @_ticket.AccessCodeValue</p>
+        <p><b>Mapa:</b> @_ticket.MapFormat - @_ticket.MapContent</p>
+    }
+</div>
+
+@code {
+    private DateTime _from = DateTime.Today.AddHours(8);
+    private DateTime _to = DateTime.Today.AddHours(10);
+
+    private string _searchText = "wolne";
+    private bool _isVipUser = false;
+
+    private List<ParkingApp.Core.Entities.ParkingSpot> _availableSpots = new();
+    private int _selectedSpotId;
+
+    private int _vehicleId = 1; // Na start ręcznie
+    private string? _message;
+
+    private ReservationResult? _ticket;
+
+    private async Task LoadAvailableSpots()
+    {
+        _message = null;
+        _ticket = null;
+
+        var result = await Mediator.Send(
+            new GetAvailableSpotsQuery(_from, _to, _searchText, _isVipUser));
+
+        _availableSpots = result.ToList();
+
+        if (_availableSpots.Count == 0)
+        {
+            _message = "Brak wolnych miejsc dla wybranych parametrów.";
+        }
+        else
+        {
+            _selectedSpotId = _availableSpots[0].Id;
+            _message = $"Znaleziono wolnych miejsc: {_availableSpots.Count}.";
+        }
+    }
+
+    private async Task CreateReservation()
+    {
+        _message = null;
+
+        var res = await Mediator.Send(new CreateReservationCommand(
+            UserId: "user1",
+            VehicleId: _vehicleId,
+            SpotId: _selectedSpotId,
+            DateFrom: _from,
+            DateTo: _to,
+            IsVipUser: _isVipUser
+        ));
+
+        _ticket = res;
+        _message = res.Message;
+
+        if (res.Success)
+        {
+            // Odśwież listę wolnych miejsc po udanej rezerwacji
+            await LoadAvailableSpots();
+        }
+    }
+}
