@@ -362,3 +362,9 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /ParkingApp.Core/ParkingApp.Core.csproj
+
+# SQLite database (local)
+*.db
+*.db-shm
+*.db-wal
+

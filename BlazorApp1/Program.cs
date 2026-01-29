@@ -84,7 +84,9 @@ app.MapRazorComponents<App>()
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
-    db.Database.EnsureCreated(); 
+    // db.Database.EnsureCreated(); 
+
+    db.Database.Migrate(); // to uruchomi migracje przy starcie (opcjonalne, ale wygodne)
 
     if (!db.ParkingSpots.Any())
     {
@@ -95,6 +97,7 @@ using (var scope = app.Services.CreateScope())
         );
         db.SaveChanges();
     }
+
 }
 
 

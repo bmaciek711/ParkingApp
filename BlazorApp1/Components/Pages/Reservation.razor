@@ -2,6 +2,9 @@
 @using MediatR
 @using ParkingApp.Application.PatternsMediator
 @inject IMediator Mediator
+@using Microsoft.AspNetCore.Components.Web
+
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <h3>Rezerwacja</h3>
 
