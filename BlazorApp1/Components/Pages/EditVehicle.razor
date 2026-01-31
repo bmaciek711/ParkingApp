@@ -1,49 +1,49 @@
 ﻿@page "/edit-vehicle/{Id:int}"
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using ParkingApp.Core.Entities
 @using ParkingApp.Core.Interfaces
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Forms
-@using Microsoft.AspNetCore.Components.Web
 @attribute [Authorize]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @inject IRepository<Vehicle> VehicleRepository
 @inject NavigationManager NavManager
 
 <div class="container mt-4 text-white">
-    <h3>Edytuj pojazd</h3>
+    <h3><i class="bi bi-pencil-square me-2 text-primary"></i>Edytuj pojazd</h3>
 
-    @if (vehicleModel == null)
+    @if (isLoading)
     {
-        <div class="spinner-border text-light" role="status">
-            <span class="visually-hidden">Ładowanie...</span>
+        <div class="d-flex align-items-center py-5">
+            <div class="spinner-border text-primary me-3" role="status"></div>
+            <span>Ładowanie danych pojazdu...</span>
         </div>
     }
     else
     {
-        <div class="card bg-dark border-secondary p-4 shadow">
-            <EditForm Model="vehicleModel" OnValidSubmit="HandleUpdate" FormName="EditVehicleForm">
+        <div class="card bg-dark border-secondary p-4 shadow-lg">
+            <EditForm Model="vehicleModel" OnValidSubmit="HandleUpdate">
                 <DataAnnotationsValidator />
 
                 <div class="mb-3">
-                    <label class="form-label text-white-50">Nazwa:</label>
-                    <InputText @bind-Value="vehicleModel.Name" class="form-control bg-secondary text-white border-0" />
-                    <ValidationMessage For="() => vehicleModel.Name" class="text-danger" />
+                    <label class="form-label text-white-50 small fw-bold">NAZWA:</label>
+                    <InputText @bind-Value="vehicleModel.Name" class="form-control bg-secondary text-white border-0 shadow-sm" />
+                    <ValidationMessage For="() => vehicleModel.Name" class="text-danger small" />
                 </div>
 
                 @if (vehicleType != "Bicycle")
                 {
                     <div class="mb-3">
-                        <label class="form-label text-white-50">Numer rejestracyjny:</label>
-                        <InputText @bind-Value="vehicleModel.LicensePlate" class="form-control bg-secondary text-white border-0" />
+                        <label class="form-label text-white-50 small fw-bold">NUMER REJESTRACYJNY:</label>
+                        <InputText @bind-Value="vehicleModel.LicensePlate" class="form-control bg-secondary text-white border-0 shadow-sm" />
                     </div>
                 }
 
-                <div class="mt-4">
-                    <button type="submit" class="btn btn-success me-2">
-                        <i class="bi bi-check-lg"></i> Zapisz zmiany
+                <div class="mt-4 pt-3 border-top border-secondary">
+                    <button type="submit" class="btn btn-success px-4 fw-bold">
+                        <i class="bi bi-save me-2"></i>Zapisz zmiany
                     </button>
-                    <button type="button" class="btn btn-outline-light" @onclick='() => NavManager.NavigateTo("/my-vehicles")'>
+                    <button type="button" class="btn btn-outline-light px-4 ms-2" @onclick='() => NavManager.NavigateTo("/my-vehicles")'>
                         Anuluj
                     </button>
                 </div>
@@ -55,21 +55,26 @@
 @code {
     [Parameter] public int Id { get; set; }
 
-    [SupplyParameterFromForm]
-    public VehicleFormModel vehicleModel { get; set; } = new();
-
+    private VehicleFormModel vehicleModel = new();
     private string? vehicleType;
     private Vehicle? originalVehicle;
+    private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()
     {
+        isLoading = true;
+        
         originalVehicle = await VehicleRepository.GetByIdAsync(Id);
         
         if (originalVehicle != null)
         {
             vehicleModel.Name = originalVehicle.Name;
             vehicleModel.LicensePlate = originalVehicle.LicensePlate ?? "";
-            vehicleType = originalVehicle.GetType().Name;
+            
+            vehicleType = originalVehicle is Bicycle ? "Bicycle" : originalVehicle.GetType().Name;
+            if (vehicleType.Contains("Proxy")) vehicleType = originalVehicle.GetType().BaseType?.Name;
+            
+            isLoading = false;
         }
         else
         {
@@ -82,7 +87,11 @@
         if (originalVehicle != null)
         {
             originalVehicle.Name = vehicleModel.Name;
-            originalVehicle.LicensePlate = vehicleModel.LicensePlate;
+            
+            if (vehicleType != "Bicycle")
+            {
+                originalVehicle.LicensePlate = vehicleModel.LicensePlate;
+            }
 
             await VehicleRepository.UpdateAsync(originalVehicle);
             NavManager.NavigateTo("/my-vehicles");
@@ -91,7 +100,8 @@
 
     public class VehicleFormModel
     {
-        [Required(ErrorMessage = "Nazwa jest wymagana")]
+        [Required(ErrorMessage = "Nazwa pojazdu jest wymagana")]
+        [StringLength(50, ErrorMessage = "Nazwa jest za długa")]
         public string Name { get; set; } = "";
         public string LicensePlate { get; set; } = "";
     }

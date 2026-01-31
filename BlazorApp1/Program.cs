@@ -41,7 +41,6 @@ builder.Services.AddIdentityCore<IdentityUser>(options => {
 .AddSignInManager()
 .AddDefaultTokenProviders();
 
-//poprawa przekirowania w przypadku niezalogowanego u¿ytkownika
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/login";
@@ -49,7 +48,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 });
 builder.Services.AddAuthorization();
 
-
+builder.Services.AddScoped<IRepository<Vehicle>, VehicleRepository>();
 builder.Services.AddSingleton<SystemConfiguration>();
 
 builder.Services.AddScoped<ReservationMediator>();
@@ -93,7 +92,7 @@ using (var scope = app.Services.CreateScope())
 
     db.Database.EnsureCreated();
 
-    // 1. Inicjalizacja Ról (Wymagane do sprawdzania uprawnieñ)
+    // Inicjalizacja Ról (Wymagane do sprawdzania uprawnieñ)
     string[] roles = { "Admin", "VIP", "User" };
     foreach (var role in roles)
     {
@@ -103,15 +102,14 @@ using (var scope = app.Services.CreateScope())
         }
     }
 
-    // 2. Automatyczne nadanie Admina (jeœli u¿ytkownik testowy ju¿ siê zarejestrowa³)
-    // 3. Nadanie uprawnieñ Admina
+    // Nadanie uprawnieñ Admina
     var adminEmail = "test@test.pl";
     // Szukamy u¿ytkownika
     var user = userManager.FindByEmailAsync(adminEmail).GetAwaiter().GetResult();
 
     if (user != null)
     {
-        // Sprawdzamy czy rola Admin istnieje (na wszelki wypadek)
+        // Sprawdzamy czy rola Admin istnieje
         if (!roleManager.RoleExistsAsync("Admin").GetAwaiter().GetResult())
         {
             roleManager.CreateAsync(new IdentityRole("Admin")).GetAwaiter().GetResult();
@@ -125,7 +123,7 @@ using (var scope = app.Services.CreateScope())
         }
     }
 
-    // 3. Inicjalizacja Miejsc Parkingowych z rozró¿nieniem typów
+    // Inicjalizacja Miejsc Parkingowych 
     if (!db.ParkingSpots.Any())
     {
         db.ParkingSpots.AddRange(
