@@ -14,18 +14,27 @@ public sealed class ParkingDbContext : IdentityDbContext<IdentityUser>
     public DbSet<Motorcycle> Motorcycles => Set<Motorcycle>();
     public DbSet<Bicycle> Bicycles => Set<Bicycle>();
 
+
     public DbSet<ParkingSpot> ParkingSpots => Set<ParkingSpot>();
-    public DbSet<Reservation> Reservations => Set<Reservation>();
-    public DbSet<Complaint> Complaints => Set<Complaint>();
+    public DbSet<Reservation> Reservations => Set<Reservation>(); 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        // Dziedziczenie Vehicle -> TPH (jedna tabela z "VehicleType")
+
+   
         modelBuilder.Entity<Vehicle>()
             .HasDiscriminator<string>("VehicleType")
             .HasValue<Car>("Car")
             .HasValue<Motorcycle>("Motorcycle")
             .HasValue<Bicycle>("Bicycle");
+
+        modelBuilder.Entity<Reservation>(entity =>
+        {
+            entity.HasOne(r => r.ParkingSpot)
+                  .WithMany() 
+                  .HasForeignKey(r => r.ParkingSpotId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
     }
 }

@@ -1,0 +1,95 @@
+﻿@page "/admin/users"
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Authorization
+@using ParkingApp.Core.Interfaces
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+@inject UserManager<IdentityUser> UserManager
+@inject RoleManager<IdentityRole> RoleManager
+
+<div class="container mt-4 text-white">
+    <h3 class="mb-4">Zarządzanie Użytkownikami</h3>
+
+    <div class="card bg-dark border-secondary shadow">
+        <div class="card-body p-0">
+            <table class="table table-dark table-hover mb-0">
+                <thead>
+                    <tr class="text-white-50">
+                        <th class="ps-4">Email</th>
+                        <th>Rangi</th>
+                        <th class="text-end pe-4">Akcje</th>
+                    </tr>
+                </thead>
+                <tbody class="align-middle">
+                    @foreach (var user in allUsers)
+                    {
+                        <tr>
+                            <td class="ps-4">@user.Email</td>
+                            <td>
+                                @foreach (var role in userRoles[user.Id])
+                                {
+                                    <span class="badge bg-info text-dark me-1">@role</span>
+                                }
+                            </td>
+                            <td class="text-end pe-4">
+                                <button class="btn btn-sm btn-outline-warning me-2" @onclick='() => ToggleRole(user, "VIP")'>
+                                    <i class="bi bi-star-fill"></i> @(userRoles[user.Id].Contains("VIP") ? "Usuń VIP" : "Daj VIP")
+                                </button>
+                                
+                                <button class="btn btn-sm btn-outline-light me-2" @onclick='() => ToggleRole(user, "Admin")'>
+                                    <i class="bi bi-shield-lock"></i> @(userRoles[user.Id].Contains("Admin") ? "Usuń Admina" : "Daj Admina")
+                                </button>
+
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteUser(user)">
+                                    <i class="bi bi-person-x"></i> Usuń
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<IdentityUser> allUsers = new();
+    private Dictionary<string, IList<string>> userRoles = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+    }
+
+    private async Task LoadUsers()
+    {
+        allUsers = UserManager.Users.ToList();
+        userRoles.Clear();
+        foreach (var user in allUsers)
+        {
+            userRoles[user.Id] = await UserManager.GetRolesAsync(user);
+        }
+    }
+
+    private async Task ToggleRole(IdentityUser user, string roleName)
+    {
+        if (userRoles[user.Id].Contains(roleName))
+        {
+            await UserManager.RemoveFromRoleAsync(user, roleName);
+        }
+        else
+        {
+            await UserManager.AddToRoleAsync(user, roleName);
+        }
+        await LoadUsers();
+    }
+
+    private async Task DeleteUser(IdentityUser user)
+    {
+        // Zabezpieczenie przed usunięciem konta głównego admina
+        if (user.Email == "test@test.pl" || user.Email == "admin@parking.pl") return; 
+        
+        await UserManager.DeleteAsync(user);
+        await LoadUsers();
+    }
+}

@@ -1,136 +1,248 @@
 ﻿@page "/reservation"
-@using MediatR
-@using ParkingApp.Application.PatternsMediator
-@inject IMediator Mediator
-@using Microsoft.AspNetCore.Components.Web
+@using ParkingApp.Core.Entities
+@using ParkingApp.Web.Services
+@using ParkingApp.Infrastructure.Data
+@using Microsoft.EntityFrameworkCore
+@inject ParkingDbContext Db
+@inject ReservationMediator Mediator
+@inject AuthenticationStateProvider AuthProvider
+@rendermode InteractiveServer
 
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
+<div class="container mt-4">
+    <div class="card shadow-lg p-4">
+        <h2 class="text-center mb-4 text-primary"><i class="bi bi-calendar-plus me-2"></i>System Rezerwacji</h2>
 
-<h3>Rezerwacja</h3>
-
-<div style="max-width:800px">
-
-    <div style="margin-bottom:10px">
-        <label><b>Od:</b></label><br />
-        <InputDate @bind-Value="_from" />
-    </div>
-
-    <div style="margin-bottom:10px">
-        <label><b>Do:</b></label><br />
-        <InputDate @bind-Value="_to" />
-    </div>
-
-    <div style="margin-bottom:10px">
-        <label><b>Wyszukiwanie (Interpreter):</b></label><br />
-        <input @bind="_searchText" style="width:100%" placeholder="np. vip wolne" />
-        <small>Przykłady: <b>vip</b>, <b>wolne</b>, <b>serwis</b></small>
-    </div>
-
-    <div style="margin-bottom:10px">
-        <label><b>VIP użytkownik?</b></label>
-        <input type="checkbox" @bind="_isVipUser" />
-    </div>
-
-    <button class="btn btn-primary" @onclick="LoadAvailableSpots">
-        Sprawdź wolne miejsca
-    </button>
-
-    @if (!string.IsNullOrWhiteSpace(_message))
-    {
-        <div class="alert alert-info mt-3">@_message</div>
-    }
-
-    @if (_availableSpots.Count > 0)
-    {
-        <hr />
-        <h5>Wolne miejsca</h5>
-
-        <div class="mb-2">
-            <label><b>Wybierz miejsce:</b></label><br />
-            <select class="form-select" @bind="_selectedSpotId">
-                @foreach (var s in _availableSpots)
-                {
-                    <option value="@s.Id">#@s.Number @(s.IsVipOnly ? "(VIP)" : "")</option>
-                }
-            </select>
+        @* Filtrowanie i Data *@
+        <div class="row g-3 mb-4 bg-light p-3 rounded border">
+            <div class="col-md-4">
+                <label class="form-label fw-bold"><i class="bi bi-calendar-event"></i> 1. Wybierz datę:</label>
+                <input type="date" class="form-control form-control-lg" 
+                       value="@selectedDate.ToString("yyyy-MM-dd")"
+                       min="@DateTime.Now.ToString("yyyy-MM-dd")"
+                       @onchange="OnDateChanged" />
+            </div>
+            <div class="col-md-8">
+                <label class="form-label fw-bold"><i class="bi bi-search"></i> 2. Szukaj (Interpreter):</label>
+                <div class="input-group input-group-lg">
+                    <input @bind="searchQuery" @bind:event="oninput" @onkeyup="ApplyFilters" 
+                           class="form-control" placeholder="np. 'vip', 'wolne', 'serwis'..." />
+                    <button class="btn btn-outline-secondary" @onclick="RefreshSpots"><i class="bi bi-arrow-clockwise"></i></button>
+                </div>
+            </div>
         </div>
 
-        <div class="mb-2">
-            <label><b>ID pojazdu (na start):</b></label><br />
-            <InputNumber class="form-control" @bind-Value="_vehicleId" />
-            <small>Na razie wpisz ręcznie (np. 1). Później zrobimy listę Twoich pojazdów.</small>
+        @*  Wybór Pojazdu *@
+        @if (userVehicles != null && userVehicles.Any())
+        {
+            <div class="mb-4 p-3 border rounded bg-white shadow-sm">
+                <label class="form-label fw-bold text-success"><i class="bi bi-car-front"></i> 3. Wybierz swój pojazd:</label>
+                <select class="form-select form-select-lg" @bind="selectedVehicleId">
+                    <option value="0">-- Wybierz pojazd z garażu --</option>
+                    @foreach (var v in userVehicles)
+                    {
+                        <option value="@v.Id">@v.Name (@v.GetVehicleType()) - @v.LicensePlate</option>
+                    }
+                </select>
+                <div class="form-text">System automatycznie filtruje miejsca pod kątem typu pojazdu.</div>
+            </div>
+        }
+
+        @* Wizualizacja miejsc *@
+        <div class="row g-3">
+            @foreach (var spot in filteredSpots)
+            {
+                var isOccupied = occupiedSpotIds.Contains(spot.Id);
+                var isWrongType = !IsVehicleCompatible(spot.SpotType);
+                var isUnderMaintenance = spot.IsUnderMaintenance;
+                var accessDeniedVip = spot.IsVipOnly && !isUserVip;
+
+                <div class="col-md-3">
+                    <div class="card h-100 @(isUnderMaintenance || isOccupied || accessDeniedVip ? "bg-light opacity-75" : "border-primary shadow-sm")">
+                        <div class="card-body text-center">
+                            <i class="bi @GetIconForSpot(spot.SpotType) display-5 mb-2 @(isUnderMaintenance ? "text-danger" : "text-primary")"></i>
+                            <h5 class="fw-bold mb-1">Miejsce @spot.Number</h5>
+                            
+                            <div class="mb-3">
+                                <span class="badge bg-secondary">@spot.SpotType</span>
+                                @if (spot.IsVipOnly)
+                                {
+                                    <span class="badge bg-warning text-dark ms-1"><i class="bi bi-star-fill"></i> VIP</span>
+                                }
+                            </div>
+
+                            @if (isUnderMaintenance)
+                            {
+                                <div class="badge bg-danger p-2 d-block mb-2 text-uppercase">W serwisie</div>
+                                <button class="btn btn-outline-danger w-100 disabled">Niedostępne</button>
+                            }
+                            else if (isOccupied)
+                            {
+                                <div class="badge bg-secondary p-2 d-block mb-2 text-uppercase">Zajęte</div>
+                                <button class="btn btn-secondary w-100 disabled">Zajęte</button>
+                            }
+                            else if (accessDeniedVip)
+                            {
+                                <div class="text-warning small mb-2 fw-bold text-uppercase">Tylko VIP</div>
+                                <button class="btn btn-outline-warning w-100 disabled">Blokada</button>
+                            }
+                            else if (isWrongType && selectedVehicleId > 0)
+                            {
+                                <div class="text-danger small mb-2 fw-bold text-uppercase">Zły typ</div>
+                                <button class="btn btn-outline-danger w-100 disabled">Niezgodne</button>
+                            }
+                            else
+                            {
+                                <button class="btn @(selectedSpotId == spot.Id ? "btn-success" : "btn-primary") w-100" 
+                                        @onclick="() => SelectSpot(spot.Id)">
+                                    @(selectedSpotId == spot.Id ? "WYBRANO" : "WYBIERZ")
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
         </div>
 
-        <button class="btn btn-success" @onclick="CreateReservation">
-            Zarezerwuj postój
-        </button>
-    }
+        @* Finalizacja *@
+        @if (selectedSpotId > 0 && selectedVehicleId > 0)
+        {
+            <div class="mt-5 p-4 border-top text-center bg-light rounded shadow-sm">
+                <h4 class="mb-3">Finalizacja rezerwacji</h4>
+                <div class="mb-3">
+                    <div class="form-check form-switch d-inline-block p-2 border rounded bg-white px-4">
+                        <input class="form-check-input" type="checkbox" id="pinSwitch" @bind="usePin">
+                        <label class="form-check-label fw-bold" for="pinSwitch">Kod PIN zamiast kodu QR</label>
+                    </div>
+                </div>
+                <button class="btn btn-success btn-lg px-5 py-3 fw-bold shadow" @onclick="ConfirmBooking">
+                    <i class="bi bi-check2-circle me-2"></i> REZERWUJĘ TERAZ
+                </button>
+            </div>
+        }
+    </div>
 
-    @if (_ticket is not null && _ticket.Success)
+    @if (!string.IsNullOrEmpty(lastCode))
     {
-        <hr />
-        <h5>Potwierdzenie (Abstract Factory)</h5>
-        <p><b>Kod dostępu:</b> @_ticket.AccessCodeType - @_ticket.AccessCodeValue</p>
-        <p><b>Mapa:</b> @_ticket.MapFormat - @_ticket.MapContent</p>
+        <div class="alert alert-success mt-4 text-center shadow-lg border-2">
+            <h3 class="alert-heading">Sukces!</h3>
+            <p>Twój kod dostępu wygenerowany przez system:</p>
+            <div class="display-3 fw-bold font-monospace text-dark">@lastCode</div>
+            <hr>
+            <p class="mb-0 small text-muted">Kod został zapisany w historii Twoich rezerwacji.</p>
+        </div>
     }
 </div>
 
 @code {
-    private DateTime _from = DateTime.Today.AddHours(8);
-    private DateTime _to = DateTime.Today.AddHours(10);
+    private DateTime selectedDate = DateTime.Now;
+    private string searchQuery = "";
+    private List<ParkingSpot> allSpots = new();
+    private List<ParkingSpot> filteredSpots = new();
+    private List<int> occupiedSpotIds = new();
+    private List<Vehicle> userVehicles = new();
+    
+    private int selectedSpotId;
+    private int selectedVehicleId;
+    private bool isUserVip = false;
+    private bool usePin = false;
+    private string? lastCode;
 
-    private string _searchText = "wolne";
-    private bool _isVipUser = false;
-
-    private List<ParkingApp.Core.Entities.ParkingSpot> _availableSpots = new();
-    private int _selectedSpotId;
-
-    private int _vehicleId = 1; // Na start ręcznie
-    private string? _message;
-
-    private ReservationResult? _ticket;
-
-    private async Task LoadAvailableSpots()
+    protected override async Task OnInitializedAsync()
     {
-        _message = null;
-        _ticket = null;
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-        var result = await Mediator.Send(
-            new GetAvailableSpotsQuery(_from, _to, _searchText, _isVipUser));
-
-        _availableSpots = result.ToList();
-
-        if (_availableSpots.Count == 0)
+        isUserVip = user.IsInRole("VIP") || user.IsInRole("Admin");
+        allSpots = await Db.ParkingSpots.AsNoTracking().ToListAsync();
+        
+        if (userId != null)
         {
-            _message = "Brak wolnych miejsc dla wybranych parametrów.";
+            userVehicles = await Db.Vehicles.Where(v => v.OwnerId == userId).ToListAsync();
         }
-        else
+        
+        await RefreshSpots();
+    }
+
+    private async Task OnDateChanged(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var newDate))
         {
-            _selectedSpotId = _availableSpots[0].Id;
-            _message = $"Znaleziono wolnych miejsc: {_availableSpots.Count}.";
+            selectedDate = newDate;
+            await RefreshSpots();
         }
     }
 
-    private async Task CreateReservation()
+    private async Task RefreshSpots()
     {
-        _message = null;
+        occupiedSpotIds = await Mediator.GetOccupiedSpotIdsAsync(selectedDate, Db);
+        ApplyFilters();
+        StateHasChanged();
+    }
 
-        var res = await Mediator.Send(new CreateReservationCommand(
-            UserId: "user1",
-            VehicleId: _vehicleId,
-            SpotId: _selectedSpotId,
-            DateFrom: _from,
-            DateTo: _to,
-            IsVipUser: _isVipUser
-        ));
-
-        _ticket = res;
-        _message = res.Message;
-
-        if (res.Success)
+    private void ApplyFilters()
+    {
+        // Wykorzystanie wzorca INTERPRETER do analizy zapytania
+        var context = Mediator.GetFilters(searchQuery);
+        
+        filteredSpots = allSpots.Where(s => 
         {
-            // Odśwież listę wolnych miejsc po udanej rezerwacji
-            await LoadAvailableSpots();
+            if (context.OnlyVip.HasValue && s.IsVipOnly != context.OnlyVip.Value) return false;
+
+            if (context.OnlyAvailable.HasValue && context.OnlyAvailable.Value)
+            {
+                if (s.IsUnderMaintenance || occupiedSpotIds.Contains(s.Id)) return false;
+            }
+
+            if (context.OnlyMaintenance.HasValue && context.OnlyMaintenance.Value && !s.IsUnderMaintenance) return false;
+
+            // Zwykłe wyszukiwanie tekstowe 
+            bool isCommand = searchQuery.Contains(":") || 
+                             searchQuery.ToLower().Contains("vip") || 
+                             searchQuery.ToLower().Contains("wolne") ||
+                             searchQuery.ToLower().Contains("serwis");
+
+            if (!isCommand && !string.IsNullOrEmpty(searchQuery))
+            {
+                return s.SpotType.Contains(searchQuery, StringComparison.OrdinalIgnoreCase);
+            }
+
+            return true;
+        }).ToList();
+    }
+
+    private bool IsVehicleCompatible(string spotType)
+    {
+        if (selectedVehicleId == 0) return true;
+        var vehicle = userVehicles.FirstOrDefault(v => v.Id == selectedVehicleId);
+        if (vehicle == null) return false;
+
+        string vType = vehicle.GetVehicleType(); 
+        return vType == spotType;
+    }
+
+    private string GetIconForSpot(string type) => type switch {
+        "Rower" => "bi-bicycle",
+        "Motocykl" => "bi-scooter",
+        _ => "bi-car-front"
+    };
+
+    private void SelectSpot(int id) 
+    {
+        selectedSpotId = id;
+        lastCode = null;
+    }
+
+    private async Task ConfirmBooking()
+    {
+        var auth = await AuthProvider.GetAuthenticationStateAsync();
+        var userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (userId != null && selectedSpotId > 0)
+        {
+            lastCode = await Mediator.CreateReservation(selectedSpotId, userId, usePin, selectedDate);
+            selectedSpotId = 0;
+            await RefreshSpots();
         }
     }
 }

@@ -6,51 +6,70 @@
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.AspNetCore.Components.Web
 @attribute [Authorize]
 @inject ParkingDbContext DbContext
 @inject UserManager<IdentityUser> UserManager
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavManager
 
-
-<div class="container mt-4">
-    <h3>Twoje Pojazdy</h3>
+<div class="container mt-4 text-white">
+    <h3 class="mb-4">Twoje Pojazdy</h3>
 
     @if (vehicles == null)
     {
-        <p><em>Ładowanie...</em></p>
+        <div class="d-flex align-items-center">
+            <div class="spinner-border text-primary me-2" role="status"></div>
+            <span>Ładowanie pojazdów...</span>
+        </div>
     }
     else if (!vehicles.Any())
     {
-        <div class="alert alert-info">Nie masz jeszcze żadnych pojazdów. <a href="add-vehicle">Dodaj pierwszy!</a></div>
+        <div class="alert alert-info bg-opacity-10 text-info border-info shadow-sm">
+            <i class="bi bi-info-circle me-2"></i>
+            Nie masz jeszcze żadnych pojazdów. 
+            <a href="add-vehicle" class="alert-link text-decoration-none border-bottom border-info">Dodaj pierwszy!</a>
+        </div>
     }
     else
     {
-        <table class="table table-hover shadow-sm">
-            <thead class="table-dark">
-                <tr>
-                    <th>Typ</th>
-                    <th>Nazwa</th>
-                    <th>Rejestracja</th>
-                    <th>Akcje</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var v in vehicles)
-                {
-                    <tr>
-                        <td>@v.GetType().Name</td>
-                        <td>@v.Name</td>
-                        <td>@(v.LicensePlate ?? "Brak")</td>
-                        <td>
-                            <button class="btn btn-sm btn-warning me-2" @onclick='() => NavManager.NavigateTo($"/edit-vehicle/{v.Id}")'>Edytuj</button>
-                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteVehicle(v.Id)">Usuń</button>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+        <div class="card bg-dark border-secondary shadow">
+            <div class="card-body p-0">
+                <table class="table table-dark table-hover mb-0">
+                    <thead>
+                        <tr class="text-white-50">
+                            <th class="ps-4">Typ</th>
+                            <th>Nazwa</th>
+                            <th>Rejestracja</th>
+                            <th class="text-end pe-4">Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody class="align-middle">
+                        @foreach (var v in vehicles)
+                        {
+                            <tr>
+                                <td class="ps-4">
+                                    <span class="badge bg-secondary py-2 px-3">@v.GetVehicleType()</span>
+                                </td>
+                                <td class="fw-bold">@v.Name</td>
+                                <td>
+                                    <code class="text-info">@(string.IsNullOrEmpty(v.LicensePlate) ? "BRAK" : v.LicensePlate)</code>
+                                </td>
+                                <td class="text-end pe-4">
+                                    <button class="btn btn-sm btn-outline-warning me-2" 
+                                            @onclick='() => NavManager.NavigateTo($"/edit-vehicle/{v.Id}")'>
+                                        <i class="bi bi-pencil"></i> Edytuj
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" 
+                                            @onclick="() => DeleteVehicle(v.Id)">
+                                        <i class="bi bi-trash"></i> Usuń
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
     }
 </div>
 
@@ -64,13 +83,11 @@
 
     private async Task LoadVehicles()
     {
-        // Pobranie ID zalogowanego użytkownika
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var user = await UserManager.GetUserAsync(authState.User);
 
         if (user != null)
         {
-            // Pobieramy tylko pojazdy należące do zalogowanej osoby
             vehicles = await DbContext.Vehicles
                 .Where(v => v.OwnerId == user.Id)
                 .ToListAsync();
@@ -85,7 +102,6 @@
             DbContext.Vehicles.Remove(vehicle);
             await DbContext.SaveChangesAsync();
             await LoadVehicles();
-            StateHasChanged();
         }
     }
 }

@@ -1,41 +1,74 @@
 ﻿@page "/"
 @using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
 
 <PageTitle>Parking App - System Zarządzania</PageTitle>
 
 <div class="container mt-5">
     <AuthorizeView>
-        @* --- WIDOK DLA ZALOGOWANYCH --- *@
+        @*  PANEL DLA ZALOGOWANEGO UŻYTKOWNIKA  *@
         <Authorized>
             <div class="jumbotron p-5 mb-4 bg-light rounded-3 shadow-sm">
-                <p class="col-md-8 fs-4">Twoje centrum zarządzania pojazdami i parkingiem jest gotowe.</p>
+                <h2 class="mb-3 text-dark">Witaj, @context.User.Identity?.Name!</h2>
+                <p class="col-md-8 fs-4 text-muted">Twoje centrum zarządzania pojazdami i parkingiem.</p>
+                
+                <div class="mb-4">
+                    @{
+                        var roles = context.User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+                    }
+                    <span class="badge bg-secondary">
+                        Status: @(roles.Any() ? string.Join(", ", roles) : "Użytkownik Standardowy")
+                    </span>
+                </div>
+
                 <hr class="my-4">
                 
                 <div class="row g-4 mt-2">
+                    @* Panel Admina *@
+                    <AuthorizeView Roles="Admin" Context="adminContext">
+                        <div class="col-md-12">
+                            <div class="card border-danger shadow-sm">
+                                <div class="card-body d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h5 class="card-title text-danger mb-1 fw-bold">Panel Administratora</h5>
+                                        <p class="card-text mb-0 text-muted small">Zarządzanie użytkownikami, nadawanie uprawnień VIP i kontrola miejsc.</p>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <a href="admin/users" class="btn btn-danger">Użytkownicy</a>
+                                        <a href="admin/spots" class="btn btn-outline-danger">Miejsca</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </AuthorizeView>
+
+                    @* Reklama, wypełniacz *@
                     <div class="col-md-4">
-                        <div class="card h-100 border-primary">
-                            <div class="card-body text-center">
-                                <h5 class="card-title">Moje Pojazdy</h5>
-                                <p class="card-text">Zarządzaj swoją flotą, edytuj dane lub usuwaj pojazdy.</p>
-                                <a href="my-vehicles" class="btn btn-outline-primary">Przejdź do listy</a>
+                        <div class="card h-100 border-primary shadow-sm border-0 bg-white">
+                            <div class="card-body text-center d-flex flex-column">
+                                <h5 class="card-title fw-bold">Moje Pojazdy</h5>
+                                <p class="card-text text-muted small">Przeglądaj swoje pojazdy i zarządzaj danymi pojazdów.</p>
+                                <a href="my-vehicles" class="btn btn-outline-primary w-100 mt-auto">Lista aut</a>
                             </div>
                         </div>
                     </div>
+
                     <div class="col-md-4">
-                        <div class="card h-100 border-success">
-                            <div class="card-body text-center">
-                                <h5 class="card-title">Dodaj Nowy</h5>
-                                <p class="card-text">Masz nowy pojazd? Zarejestruj go w systemie w kilka sekund.</p>
-                                <a href="add-vehicle" class="btn btn-outline-success">Dodaj pojazd</a>
+                        <div class="card h-100 border-success shadow-sm border-0 bg-white">
+                            <div class="card-body text-center d-flex flex-column">
+                                <h5 class="card-title fw-bold">Dodaj Nowy</h5>
+                                <p class="card-text text-muted small">Zarejestruj nowy pojazd w systemie w kilka sekund.</p>
+                                <a href="add-vehicle" class="btn btn-outline-success w-100 mt-auto">Dodaj pojazd</a>
                             </div>
                         </div>
                     </div>
+
                     <div class="col-md-4">
-                        <div class="card h-100 border-info">
-                            <div class="card-body text-center">
-                                <h5 class="card-title">Rezerwacja</h5>
-                                <p class="card-text">Sprawdź wolne miejsca i zarezerwuj postój.</p>
-                                <a href="reservation" class="btn btn-outline-info">Przejdź</a>
+                        <div class="card h-100 border-info shadow-sm border-0 bg-white">
+                            <div class="card-body text-center d-flex flex-column">
+                                <h5 class="card-title fw-bold">Rezerwacja</h5>
+                                <p class="card-text text-muted small">Wybierz miejsce i zaplanuj swój postój na parkingu.</p>
+                                <a href="reservation" class="btn btn-outline-info w-100 mt-auto">Zarezerwuj</a>
                             </div>
                         </div>
                     </div>
@@ -43,32 +76,38 @@
             </div>
         </Authorized>
 
-        @* --- WIDOK DLA NIEZALOGOWANYCH --- *@
+        @*  WIDOK DLA NIEZALOGOWANYCH  *@
         <NotAuthorized>
             <div class="text-center p-5 bg-dark text-white rounded-3 shadow">
                 <h1 class="display-4 fw-bold">Witaj w ParkingApp</h1>
-                <p class="lead mt-3">Nowoczesny system zarządzania miejscami parkingowymi dla Twojej firmy i domu.</p>
+                <p class="lead mt-3">Nowoczesny system zarządzania miejscami parkingowymi dla Twojej firmy.</p>
                 <div class="mt-5">
-                    <a href="login" class="btn btn-primary btn-lg px-4 me-sm-3">Zaloguj się</a>
+                    <a href="login" class="btn btn-primary btn-lg px-4 me-sm-3 shadow">Zaloguj się</a>
                     <a href="register" class="btn btn-outline-light btn-lg px-4">Załóż konto</a>
-                </div>
-                <div class="mt-4 text-muted">
-                    <small>Zaloguj się, aby uzyskać dostęp do rezerwacji i zarządzania pojazdami.</small>
                 </div>
             </div>
 
-            <div class="row mt-5 text-center">
+            <div class="row mt-5 text-center text-dark">
                 <div class="col-md-4">
-                    <h3>Szybkość</h3>
-                    <p>Rezerwacja miejsca w mniej niż 30 sekund.</p>
+                    <div class="p-3">
+                        <i class="bi bi-lightning-fill fs-1 text-warning"></i>
+                        <h4 class="mt-2 fw-bold">Szybkość</h4>
+                        <p class="text-muted small">Rezerwacja miejsca dostępna w mniej niż 30 sekund.</p>
+                    </div>
                 </div>
                 <div class="col-md-4">
-                    <h3>Bezpieczeństwo</h3>
-                    <p>Pełna kontrola nad tym, kto parkuje na Twoim terenie.</p>
+                    <div class="p-3">
+                        <i class="bi bi-shield-check fs-1 text-success"></i>
+                        <h4 class="mt-2 fw-bold">Bezpieczeństwo</h4>
+                        <p class="text-muted small">Pełna kontrola nad dostępem do Twojego terenu.</p>
+                    </div>
                 </div>
                 <div class="col-md-4">
-                    <h3>Raporty</h3>
-                    <p>Śledź historię postojów i wydatki.</p>
+                    <div class="p-3">
+                        <i class="bi bi-bar-chart-fill fs-1 text-info"></i>
+                        <h4 class="mt-2 fw-bold">Intuicyjność</h4>
+                        <p class="text-muted small">Prosty interfejs zaprojektowany z myślą o wygodzie.</p>
+                    </div>
                 </div>
             </div>
         </NotAuthorized>

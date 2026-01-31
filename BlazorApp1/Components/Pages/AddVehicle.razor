@@ -1,80 +1,125 @@
 ﻿@page "/add-vehicle"
+@attribute [Authorize]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
 @using ParkingApp.Application.PatternsFactories
 @using ParkingApp.Core.Entities
-@using System.ComponentModel.DataAnnotations
-@using Microsoft.AspNetCore.Components.Forms
-@inject NavigationManager NavManager
+@using ParkingApp.Core.Settings
 @using ParkingApp.Infrastructure.Data
-@using Microsoft.AspNetCore.Identity
-@inject ParkingDbContext DbContext
+@using System.ComponentModel.DataAnnotations
+
+@inject NavigationManager NavManager
 @inject UserManager<IdentityUser> UserManager
 @inject AuthenticationStateProvider AuthStateProvider
-@using Microsoft.AspNetCore.Authorization
-@attribute [Authorize]
+@inject AccountRequirementService AccountService
+@inject ParkingDbContext DbContext
+@inject SystemConfiguration Config
 
-<div class="container mt-4">
-    <h3>Dodaj nowy pojazd</h3>
+<div class="container mt-4 text-white">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <h3 class="mb-4">Dodaj nowy pojazd</h3>
 
-    <EditForm Model="@vehicleModel" OnValidSubmit="HandleCreate" FormName="AddVehicleForm">
-        <DataAnnotationsValidator />
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger shadow-sm">@errorMessage</div>
+            }
 
-        <div class="mb-3">
-            <label>Typ pojazdu:</label>
-            <InputSelect @bind-Value="vehicleModel.Type" class="form-control">
-                <option value="Car">Samochód</option>
-                <option value="Motorcycle">Motocykl</option>
-                <option value="Bicycle">Rower</option>
-            </InputSelect>
-        </div>
+            <div class="card bg-dark border-secondary p-4 shadow">
+                <EditForm Model="@vehicleModel" OnValidSubmit="HandleCreate" FormName="AddVehicleForm">
+                    <DataAnnotationsValidator />
 
-        <div class="mb-3">
-            <label>Nazwa (np. Mój samochód):</label>
-            <InputText @bind-Value="vehicleModel.Name" class="form-control" />
-        </div>
+                    <div class="mb-3">
+                        <label class="form-label text-white-50">Typ pojazdu:</label>
+                        <InputSelect @bind-Value="vehicleModel.Type" class="form-select bg-secondary text-white border-0">
+                            <option value="Car">Samochód</option>
+                            <option value="Motorcycle">Motocykl</option>
+                            <option value="Bicycle">Rower</option>
+                        </InputSelect>
+                    </div>
 
-        @if (vehicleModel.Type != "Bicycle")
-        {
-            <div class="mb-3">
-                <label>Numer rejestracyjny:</label>
-                <InputText @bind-Value="vehicleModel.LicensePlate" class="form-control" />
+                    <div class="mb-3">
+                        <label class="form-label text-white-50">Nazwa pojazdu:</label>
+                        <InputText @bind-Value="vehicleModel.Name" class="form-control bg-secondary text-white border-0" placeholder="np. Mój samochód" />
+                        <ValidationMessage For="@(() => vehicleModel.Name)" class="text-danger small" />
+                    </div>
+
+                    @if (vehicleModel.Type != "Bicycle")
+                    {
+                        <div class="mb-3">
+                            <label class="form-label text-white-50">Numer rejestracyjny:</label>
+                            <InputText @bind-Value="vehicleModel.LicensePlate" class="form-control bg-secondary text-white border-0" placeholder="np. ABC 12345" />
+                        </div>
+                    }
+
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary fw-bold">
+                            <i class="bi bi-plus-circle me-2"></i>Stwórz pojazd
+                        </button>
+                    </div>
+                </EditForm>
             </div>
-        }
-
-        <button type="submit" class="btn btn-primary">Stwórz pojazd</button>
-    </EditForm>
+        </div>
+    </div>
 </div>
 
 @code {
     [SupplyParameterFromForm]
     public VehicleFormModel vehicleModel { get; set; } = new();
+    
+    private string? errorMessage;
 
-private async Task HandleCreate()
-{
-    var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-    var user = await UserManager.GetUserAsync(authState.User);
+    private async Task HandleCreate()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = await UserManager.GetUserAsync(authState.User);
 
-    if (user == null) return;
+        if (user == null) return;
 
-    var newVehicle = VehicleSimpleFactory.Create(
-        vehicleModel.Type, 
-        vehicleModel.Name, 
-        vehicleModel.LicensePlate
-    );
+        // Wybór fabryki (Abstract Factory) na podstawie ról użytkownika
+        var roles = await UserManager.GetRolesAsync(user);
+        var factory = AccountService.GetFactory(roles);
 
-    newVehicle.OwnerId = user.Id;
+        // Pobranie produktu "Limit" z fabryki i walidacja biznesowa
+        int limit = factory.CreateLimit().GetLimit(Config);
+        int currentCount = await DbContext.Vehicles.CountAsync(v => v.OwnerId == user.Id);
 
-    DbContext.Vehicles.Add(newVehicle);
-    await DbContext.SaveChangesAsync();
+        if (currentCount >= limit)
+        {
+            errorMessage = $"Osiągnąłeś limit {limit} pojazdów dla Twojego typu konta!";
+            return;
+        }
 
+        //Simple Factory tworzy konkretną instancję pojazdu 
+        string? plateToSave = vehicleModel.Type == "Bicycle" ? null : vehicleModel.LicensePlate;
 
-    NavManager.NavigateTo("/");
-}
+        var newVehicle = VehicleSimpleFactory.Create(
+            vehicleModel.Type,
+            vehicleModel.Name,
+            plateToSave ?? ""
+        );
+
+        newVehicle.OwnerId = user.Id;
+
+        DbContext.Vehicles.Add(newVehicle);
+        await DbContext.SaveChangesAsync();
+
+        NavManager.NavigateTo("/my-vehicles");
+    }
 
     public class VehicleFormModel
     {
         public string Type { get; set; } = "Car";
-        [Required] public string Name { get; set; } = "";
+
+        [Required(ErrorMessage = "Nazwa jest wymagana")]
+        [StringLength(50, ErrorMessage = "Nazwa jest za długa")]
+        public string Name { get; set; } = "";
+
         public string LicensePlate { get; set; } = "";
     }
 }

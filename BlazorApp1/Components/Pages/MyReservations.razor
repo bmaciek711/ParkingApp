@@ -1,0 +1,97 @@
+﻿@page "/my-reservations"
+@using Microsoft.EntityFrameworkCore
+@using ParkingApp.Infrastructure.Data
+@using DbEntities = ParkingApp.Core.Entities
+@using Microsoft.AspNetCore.Authorization
+@inject ParkingDbContext Db
+@inject AuthenticationStateProvider AuthProvider
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<div class="container mt-4 text-white">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="mb-0">
+            <i class="bi bi-ticket-detailed me-2 text-primary"></i>Twoje Rezerwacje
+        </h3>
+        <a href="/reservation" class="btn btn-primary shadow-sm">
+            <i class="bi bi-plus-circle me-1"></i> Nowa rezerwacja
+        </a>
+    </div>
+
+    @if (userReservations == null)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-white-50">Pobieranie Twoich kodów dostępu...</p>
+        </div>
+    }
+    else if (!userReservations.Any())
+    {
+        <div class="card bg-dark border-secondary text-center py-5 shadow">
+            <i class="bi bi-calendar-x display-4 text-muted mb-3 d-block"></i>
+            <p class="lead mb-0 text-white-50">Nie znaleziono aktywnych rezerwacji.</p>
+            <small class="text-muted">Zarezerwuj miejsce, aby otrzymać unikalny kod PIN/QR.</small>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var res in userReservations)
+            {
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card h-100 bg-dark border-secondary shadow-sm border-top border-4 border-primary">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between mb-3 align-items-center">
+                                <h5 class="fw-bold mb-0">Miejsce #@(res.ParkingSpot?.Number ?? 0)</h5>
+                                <span class="badge @(res.ReservedForDate.Date < DateTime.Today ? "bg-secondary" : "bg-success")">
+                                    @(res.ReservedForDate.Date < DateTime.Today ? "Zakończona" : "Aktywna")
+                                </span>
+                            </div>
+
+                            <div class="mb-3">
+                                <small class="text-white-50 d-block">Data postoju:</small>
+                                <span class="fw-bold text-info">@res.ReservedForDate.ToLongDateString()</span>
+                            </div>
+
+                            <div class="p-3 bg-white bg-opacity-10 rounded text-center border border-secondary border-dashed">
+                                <small class="text-uppercase fw-bold text-white-50 d-block mb-1" style="font-size: 0.7rem;">
+                                    Twój Kod Dostępu
+                                </small>
+                                <h2 class="font-monospace text-warning mb-0 fw-bold" style="letter-spacing: 2px;">
+                                    @res.AccessCode
+                                </h2>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-transparent border-secondary text-white-50 small">
+                            <i class="bi bi-clock me-1"></i> Utworzono: @res.CreatedAt.ToString("g")
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<DbEntities.Reservation>? userReservations;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (userId != null)
+        {
+            userReservations = await Db.Reservations
+                .Include(r => r.ParkingSpot)
+                .Where(r => r.UserId == userId)
+                .OrderByDescending(r => r.ReservedForDate)
+                .AsNoTracking()
+                .ToListAsync();
+        }
+        else
+        {
+            userReservations = new List<DbEntities.Reservation>();
+        }
+    }
+}

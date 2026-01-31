@@ -1,27 +1,22 @@
+using MediatR;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using ParkingApp.Application.PatternsSingleton;
 using ParkingApp.Core.Entities;
 using ParkingApp.Core.Interfaces;
+using ParkingApp.Core.Settings;
 using ParkingApp.Infrastructure.Data;
-using ParkingApp.Infrastructure.Repositories;
 using ParkingApp.Web;
 using ParkingApp.Web.Components;
-using ParkingApp.Application.Services;
-using MediatR;
-using ParkingApp.Application.PatternsMediator;
+using ParkingApp.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddScoped<IParkingSpotReadRepository, ParkingSpotReadRepository>();
-
-builder.Services.AddMediatR(typeof(GetAvailableSpotsHandler).Assembly);
-
-builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 
 
+builder.Services.AddScoped<AccountRequirementService>();
 
-builder.Services.AddScoped<IParkingService, ParkingService>();
+
 
 builder.Services.AddDbContext<ParkingDbContext>(opt =>
     opt.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -55,9 +50,9 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddAuthorization();
 
 
-builder.Services.AddSingleton<SystemConfiguration>(); 
-builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
+builder.Services.AddSingleton<SystemConfiguration>();
 
+builder.Services.AddScoped<ReservationMediator>();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -81,24 +76,66 @@ app.UseAntiforgery();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
+app.MapPost("/Account/Logout", async (
+    SignInManager<IdentityUser> signInManager,
+    [FromForm] string returnUrl) =>
+{
+    await signInManager.SignOutAsync();
+    return Results.LocalRedirect(returnUrl ?? "/");
+});
+
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
-    // db.Database.EnsureCreated(); 
+    var services = scope.ServiceProvider;
+    var db = services.GetRequiredService<ParkingDbContext>();
+    var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+    var userManager = services.GetRequiredService<UserManager<IdentityUser>>();
 
-    db.Database.Migrate(); // to uruchomi migracje przy starcie (opcjonalne, ale wygodne)
+    db.Database.EnsureCreated();
 
+    // 1. Inicjalizacja Ról (Wymagane do sprawdzania uprawnieñ)
+    string[] roles = { "Admin", "VIP", "User" };
+    foreach (var role in roles)
+    {
+        if (!roleManager.RoleExistsAsync(role).GetAwaiter().GetResult())
+        {
+            roleManager.CreateAsync(new IdentityRole(role)).GetAwaiter().GetResult();
+        }
+    }
+
+    // 2. Automatyczne nadanie Admina (jeœli u¿ytkownik testowy ju¿ siê zarejestrowa³)
+    // 3. Nadanie uprawnieñ Admina
+    var adminEmail = "test@test.pl";
+    // Szukamy u¿ytkownika
+    var user = userManager.FindByEmailAsync(adminEmail).GetAwaiter().GetResult();
+
+    if (user != null)
+    {
+        // Sprawdzamy czy rola Admin istnieje (na wszelki wypadek)
+        if (!roleManager.RoleExistsAsync("Admin").GetAwaiter().GetResult())
+        {
+            roleManager.CreateAsync(new IdentityRole("Admin")).GetAwaiter().GetResult();
+        }
+
+        // Nadajemy rolê, jeœli u¿ytkownik jej nie ma
+        var isInRole = userManager.IsInRoleAsync(user, "Admin").GetAwaiter().GetResult();
+        if (!isInRole)
+        {
+            userManager.AddToRoleAsync(user, "Admin").GetAwaiter().GetResult();
+        }
+    }
+
+    // 3. Inicjalizacja Miejsc Parkingowych z rozró¿nieniem typów
     if (!db.ParkingSpots.Any())
     {
         db.ParkingSpots.AddRange(
-            new ParkingSpot { Number = 1, IsVipOnly = false, IsUnderMaintenance = false },
-            new ParkingSpot { Number = 2, IsVipOnly = true, IsUnderMaintenance = false },
-            new ParkingSpot { Number = 3, IsVipOnly = false, IsUnderMaintenance = true }
+            new ParkingSpot { Number = 1, IsVipOnly = false, SpotType = "Samochód", IsUnderMaintenance = true },
+            new ParkingSpot { Number = 2, IsVipOnly = true, SpotType = "Samochód", IsUnderMaintenance = false },
+            new ParkingSpot { Number = 3, IsVipOnly = false, SpotType = "Motocykl", IsUnderMaintenance = false },
+            new ParkingSpot { Number = 4, IsVipOnly = false, SpotType = "Rower", IsUnderMaintenance = false }
         );
         db.SaveChanges();
     }
-
 }
-
 
 app.Run();

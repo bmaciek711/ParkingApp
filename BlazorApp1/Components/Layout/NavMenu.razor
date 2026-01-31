@@ -1,50 +1,144 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@using ParkingApp.Core.Interfaces
+@using ParkingApp.Core.Settings
+@using ParkingApp.Infrastructure.Data
+@using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
+@inject ParkingDbContext Db
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">ParkingApp</a>
     </div>
 </div>
 
-<div class="nav-scrollable">
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').checked = false">
     <nav class="flex-column">
+        
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill" aria-hidden="true"></span> Home
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
             </NavLink>
         </div>
 
         <AuthorizeView>
             <Authorized>
-                @* Widoczne tylko po zalogowaniu *@
+                @* SEKCJA PROFILU (Abstract Factory) *@
+                <div class="px-3 mb-4 mt-2">
+                    <div class="d-flex flex-column align-items-start bg-white bg-opacity-10 rounded shadow-sm p-3" 
+                         style="color: white; border: 1px solid rgba(255,255,255,0.1);">
+                        @{
+                            var config = new SystemConfiguration();
+                            
+                            IAccountFactory factory = context.User.IsInRole("Admin") ? new AdminAccountFactory() :
+                                                     context.User.IsInRole("VIP") ? new VipAccountFactory() :
+                                                     new DefaultAccountFactory();
+
+                            var desc = factory.CreateDescription();
+                            var limitObj = factory.CreateLimit();
+                            int maxLimit = limitObj.GetLimit(config);
+                            
+                            var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                            int currentVehicles = userId != null ? Db.Vehicles.Count(v => v.OwnerId == userId) : 0;
+
+                            double progressPercent = (double)currentVehicles / maxLimit * 100;
+                            if (progressPercent > 100) progressPercent = 100;
+                        }
+
+                        <div class="mb-3 w-100">
+                            <small class="text-white-50 d-block" style="font-size: 0.7rem; letter-spacing: 1px; text-transform: uppercase;">
+                                Użytkownik
+                            </small>
+                            <div class="fw-bold text-@desc.GetThemeColor()" style="font-size: 1.1rem; line-height: 1.2;">
+                                @desc.GetFullName()
+                            </div>
+                        </div>
+
+                        <div class="w-100 border-top border-white border-opacity-10 pt-2">
+                            <div class="d-flex justify-content-between align-items-center opacity-75">
+                                <span style="font-size: 0.75rem;">Limit pojazdów:</span>
+                                <span class="fw-bold">@currentVehicles / @maxLimit</span>
+                            </div>
+                            
+                            <div class="progress mt-2" style="height: 4px; background-color: rgba(255,255,255,0.1); border-radius: 2px;">
+                                <div class="progress-bar bg-@desc.GetThemeColor()" 
+                                     style="width: @(progressPercent)% ; transition: width 0.5s ease;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                @* MENU UŻYTKOWNIKA *@
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="my-vehicles">
                         <span class="bi bi-car-front-fill" aria-hidden="true"></span> Moje Pojazdy
                     </NavLink>
                 </div>
+
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="add-vehicle">
-                        <span class="bi bi-plus-circle-fill" aria-hidden="true"></span> Dodaj Pojazd
+                        <span class="bi bi-plus-circle-fill text-success" aria-hidden="true"></span> Dodaj Pojazd
                     </NavLink>
                 </div>
+                
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="reservation">
-                        <span class="bi bi-calendar-check-fill" aria-hidden="true"></span>
-                        Rezerwacja
+                        <span class="bi bi-calendar-check-fill" aria-hidden="true"></span> Rezerwacja
                     </NavLink>
                 </div>
+                
                 <div class="nav-item px-3">
-                    <LogoutButton />
+                    <NavLink class="nav-link" href="my-reservations">
+                        <span class="bi bi-calendar2-check-fill" aria-hidden="true"></span> Moje Rezerwacje
+                    </NavLink>
+                </div>
+
+                @* SEKCJA ADMINISTRACJI *@
+                <AuthorizeView Roles="Admin" Context="adminContext">
+                    <Authorized>
+                        <div class="nav-item px-3 mt-3">
+                            <hr class="text-white opacity-25" />
+                            <div class="nav-link disabled text-uppercase small opacity-50 text-white fw-lighter" style="font-size: 0.65rem; letter-spacing: 1px;">
+                                Administracja
+                            </div>
+                        </div>
+                        
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link text-info" href="admin/users">
+                                <span class="bi bi-people-fill" aria-hidden="true"></span> Użytkownicy
+                            </NavLink>
+                        </div>
+
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link text-warning" href="admin/spots">
+                                <span class="bi bi-p-square-fill" aria-hidden="true"></span> Miejsca Parkingowe
+                            </NavLink>
+                        </div>
+                    </Authorized>
+                </AuthorizeView>
+
+                @* WYLOGOWANIE *@
+                <div class="nav-item px-3 mt-4 border-top border-white border-opacity-10 pt-2">
+                    <form action="Account/Logout" method="post">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="ReturnUrl" value="/" />
+                        <button type="submit" class="nav-link btn btn-link w-100 text-start border-0 shadow-none py-2">
+                            <span class="bi bi-arrow-bar-left" aria-hidden="true"></span> Wyloguj
+                        </button>
+                    </form>
                 </div>
             </Authorized>
 
             <NotAuthorized>
-                @* Widoczne tylko dla gości *@
                 <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="login">
+                    <NavLink class="nav-link" href="/Login">
                         <span class="bi bi-person-fill" aria-hidden="true"></span> Logowanie
                     </NavLink>
                 </div>
                 <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="register">
+                    <NavLink class="nav-link" href="/Register">
                         <span class="bi bi-person-plus-fill" aria-hidden="true"></span> Rejestracja
                     </NavLink>
                 </div>

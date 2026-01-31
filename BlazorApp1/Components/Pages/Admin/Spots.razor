@@ -1,0 +1,148 @@
+﻿@page "/admin/spots"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using ParkingApp.Infrastructure.Data
+@using ParkingApp.Core.Entities
+@using ParkingApp.Application.PatternsFactories
+@using ParkingApp.Core.Settings
+@attribute [Authorize(Roles = "Admin")]
+@inject ParkingDbContext Db
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+<div class="container mt-4 text-gray">
+    <h3>Zarządzanie Miejscami Parkingowymi</h3>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="bg-primary bg-opacity-25 border border-primary rounded p-2 px-3 shadow-sm">
+            <span class="text-black small text-uppercase fw-bold">Statystyka systemu:</span>
+            <div class="d-flex align-items-center">
+                <i class="bi bi-key-fill me-2 text-primary"></i>
+                <span>Wydane kody dostępu: <strong>@ParkingStatistics.Instance.IssuedAccessCodes</strong></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card bg-dark border-secondary mb-4 shadow">
+        <div class="card-header border-secondary fw-bold text-white">Dodaj nowe miejsce</div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-2">
+                    <label class="small text-white-50">Numer:</label>
+                    <input type="number" @bind="newSpot.Number" class="form-control bg-secondary text-white border-0" />
+                </div>
+                <div class="col-md-3">
+                    <label class="small text-white-50">Typ:</label>
+                    <select @bind="newSpot.SpotType" class="form-control bg-secondary text-white border-0">
+                        <option value="Samochód">Samochód</option>
+                        <option value="Motocykl">Motocykl</option>
+                        <option value="Rower">Rower</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="form-check mb-2">
+                        <input type="checkbox" @bind="newSpot.IsVipOnly" class="form-check-input" id="vipCheck" />
+                        <label class="form-check-label text-white-50" for="vipCheck">Tylko VIP</label>
+                    </div>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button class="btn btn-success w-100 fw-bold" @onclick="AddSpot">
+                        <i class="bi bi-plus-lg"></i> Dodaj Miejsce
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <table class="table table-dark table-hover align-middle">
+        <thead>
+            <tr class="text-white-50">
+                <th>Nr</th>
+                <th>Typ</th>
+                <th>VIP?</th>
+                <th>Status</th>
+                <th>Akcje</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var spot in spots)
+            {
+                <tr>
+                    <td class="fw-bold">@spot.Number</td>
+                    <td>
+                        <select value="@spot.SpotType" 
+                                @onchange="@(async (e) => { spot.SpotType = e.Value.ToString(); await UpdateSpot(spot); })" 
+                                class="form-select bg-secondary text-white border-0 form-select-sm" style="width: 130px;">
+                            <option value="Samochód">Samochód</option>
+                            <option value="Motocykl">Motocykl</option>
+                            <option value="Rower">Rower</option>
+                        </select>
+                    </td>
+                    <td>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" checked="@spot.IsVipOnly" 
+                                   @onchange="@(async (e) => { spot.IsVipOnly = (bool)e.Value; await UpdateSpot(spot); })" />
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge @(spot.IsUnderMaintenance ? "bg-danger" : "bg-success")">
+                            @(spot.IsUnderMaintenance ? "Serwis" : "Aktywne")
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-warning me-2" @onclick="() => ToggleMaintenance(spot)">
+                            <i class="bi bi-tools"></i> Serwis
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteSpot(spot)">
+                            <i class="bi bi-trash"></i> Usuń
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private List<ParkingSpot> spots = new();
+    private ParkingSpot newSpot = new() { Number = 1, SpotType = "Samochód" };
+
+    protected override async Task OnInitializedAsync() => await LoadSpots();
+
+    private async Task LoadSpots()
+    {
+        spots = await Db.ParkingSpots.OrderBy(s => s.Number).ToListAsync();
+    }
+
+    private async Task AddSpot()
+    {
+        var spot = SpotSimpleFactory.CreateSpot(newSpot.SpotType, newSpot.Number, newSpot.IsVipOnly);
+        
+        Db.ParkingSpots.Add(spot);
+        await Db.SaveChangesAsync();
+        
+        newSpot.Number++;
+        await LoadSpots();
+    }
+
+    private async Task ToggleMaintenance(ParkingSpot spot)
+    {
+        spot.IsUnderMaintenance = !spot.IsUnderMaintenance;
+        await Db.SaveChangesAsync();
+        await LoadSpots();
+    }
+
+    private async Task DeleteSpot(ParkingSpot spot)
+    {
+        Db.ParkingSpots.Remove(spot);
+        await Db.SaveChangesAsync();
+        await LoadSpots();
+    }
+
+    private async Task UpdateSpot(ParkingSpot spot)
+    {
+        if (spot.SpotType == "Rower") spot.IsVipOnly = false;
+
+        Db.ParkingSpots.Update(spot);
+        await Db.SaveChangesAsync();
+    }
+}

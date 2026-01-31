@@ -4,5 +4,5 @@ namespace ParkingApp.Core.Entities;
 
 public sealed class Car : Vehicle
 {
-    public override string GetVehicleType() => "Car";
+    public override string GetVehicleType() => "Samochód";
 }

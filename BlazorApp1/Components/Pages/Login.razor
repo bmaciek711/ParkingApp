@@ -3,35 +3,43 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authentication
-@inject SignInManager<IdentityUser> SignInManager
-@inject NavigationManager NavManager
 @using Microsoft.AspNetCore.Authorization
 @attribute [AllowAnonymous]
-@using ParkingApp.Web.Components.Pages
+@inject SignInManager<IdentityUser> SignInManager
+@inject NavigationManager NavManager
 
 <div class="container mt-5">
-    <div class="card shadow p-4" style="max-width: 400px; margin: auto;">
-        <h3 class="text-center">Logowanie</h3>
+    <div class="card shadow p-4" style="max-width: 400px; margin: auto; background-color: #2b2b2b; color: white; border: 1px solid rgba(255,255,255,0.1);">
+        <h3 class="text-center mb-4">Logowanie</h3>
 
         @if (!string.IsNullOrEmpty(errorMessage))
         {
-            <div class="alert alert-danger">@errorMessage</div>
+            <div class="alert alert-danger py-2" style="font-size: 0.9rem;">@errorMessage</div>
         }
 
         <EditForm Model="@loginModel" OnValidSubmit="HandleLogin" FormName="LoginForm" method="post">
             <DataAnnotationsValidator />
+            
             <div class="mb-3">
-                <label class="form-label">Email</label>
-                <InputText @bind-Value="loginModel.Email" class="form-control" />
+                <label class="form-label text-white-50 small">Email</label>
+                <InputText @bind-Value="loginModel.Email" class="form-control bg-dark text-white border-secondary" />
+                <ValidationMessage For="@(() => loginModel.Email)" class="text-danger small" />
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Hasło</label>
-                <InputText @bind-Value="loginModel.Password" type="password" class="form-control" />
+                <label class="form-label text-white-50 small">Hasło</label>
+                <InputText @bind-Value="loginModel.Password" type="password" class="form-control bg-dark text-white border-secondary" />
+                <ValidationMessage For="@(() => loginModel.Password)" class="text-danger small" />
             </div>
 
-            <button type="submit" class="btn btn-primary w-100">Zaloguj się</button>
+            <button type="submit" class="btn btn-primary w-100 fw-bold mt-2">
+                <i class="bi bi-box-arrow-in-right"></i> Zaloguj się
+            </button>
         </EditForm>
+        
+        <div class="text-center mt-3">
+            <a href="register" class="text-info small text-decoration-none">Nie masz konta? Zarejestruj się</a>
+        </div>
     </div>
 </div>
 
@@ -44,10 +52,9 @@
     
     private string? errorMessage;
 
-
     private async Task HandleLogin()
     {
-        var result = await SignInManager.PasswordSignInAsync(loginModel.Email, loginModel.Password, false, false);
+        var result = await SignInManager.PasswordSignInAsync(loginModel.Email, loginModel.Password, false, lockoutOnFailure: false);
 
         if (result.Succeeded)
         {
@@ -62,7 +69,7 @@
     public class LoginModel
     {
         [Required(ErrorMessage = "Email jest wymagany")]
-        [EmailAddress]
+        [EmailAddress(ErrorMessage = "Niepoprawny format adresu email")]
         public string Email { get; set; } = "";
 
         [Required(ErrorMessage = "Hasło jest wymagane")]
